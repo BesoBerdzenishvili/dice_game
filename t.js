@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 const crypto = require("crypto");
 const readline = require("readline");
 
@@ -32,7 +30,21 @@ class InputParser {
 }
 
 class ProbabilityCalculator {
+  static calculateProbability(diceA, diceB) {
+    let count = 0;
+    for (let a of diceA) {
+      for (let b of diceB) {
+        if (a > b) {
+          count++;
+        }
+      }
+    }
+    const totalOutcomes = 36;
+    const probability = count / totalOutcomes;
+    return Number(probability.toFixed(4));
+  }
   static calculate(diceSet) {
+    console.log(diceSet[0].faces, "diceSet");
     const probabilities = [];
     for (let i = 0; i < diceSet.length; i++) {
       probabilities[i] = [];
@@ -40,7 +52,10 @@ class ProbabilityCalculator {
         if (i === j) {
           probabilities[i][j] = "- (0.3333)";
         } else {
-          probabilities[i][j] = Math.random().toFixed(4); // Placeholder
+          probabilities[i][j] = this.calculateProbability(
+            diceSet[i].faces,
+            diceSet[j].faces
+          );
         }
       }
     }
@@ -50,7 +65,7 @@ class ProbabilityCalculator {
   static display(probabilities, diceConfigs) {
     console.log("\nProbability of the win for the user:");
     console.log(
-      "+-------------+" + diceConfigs.map(() => "-------------+").join("")
+      "+--------------+" + diceConfigs.map(() => "--------------+").join("")
     );
     console.log(
       "| User dice v | " +
@@ -59,7 +74,7 @@ class ProbabilityCalculator {
           .join("")
     );
     console.log(
-      "+-------------+" + diceConfigs.map(() => "-------------+").join("")
+      "+--------------+" + diceConfigs.map(() => "--------------+").join("")
     );
     probabilities.forEach((row, i) => {
       console.log(
@@ -70,9 +85,17 @@ class ProbabilityCalculator {
           " |"
       );
       console.log(
-        "+-------------+" + diceConfigs.map(() => "-------------+").join("")
+        "+--------------+" + diceConfigs.map(() => "--------------+").join("")
       );
     });
+  }
+
+  static showResults() {
+    const args = process.argv.slice(2);
+    const diceSet = InputParser.parseDiceConfigs(args);
+    // console.log(args, "args", diceSet, "dice set");
+    const probabilities = this.calculate(diceSet);
+    this.display(probabilities, diceSet);
   }
 }
 
@@ -176,11 +199,21 @@ class Game {
     const { randomValue, hmac, key } =
       FairRandomGenerator.generateRandom(range);
     console.log(
-      `I selected a random value in the range 0..${range - 1} (HMAC=${hmac}).`
+      `I selected a random value in the range 0..${
+        range - 1
+      } (HMAC=${hmac}). \nYour selection: \n0 - 0\n1 - 1\n2 - 2\n3 - 3\n4 - 4\n5 - 5\nX - exit\n? - help\n`
     );
 
-    const userNumber = await this.prompt(`Add your number modulo ${range}: `);
-
+    let userNumber = await this.prompt(`Add your number modulo ${range}: `);
+    // if x quit
+    if (userNumber === "x" || userNumber === "X") {
+      process.exit(1);
+    }
+    if (userNumber === "?") {
+      ProbabilityCalculator.showResults();
+      return this.fairThrow(range, player);
+    }
+    // if ? display win probabilities
     const result = (randomValue + parseInt(userNumber, 10)) % range;
     console.log(
       `${
@@ -201,13 +234,16 @@ class Game {
 }
 
 // --- Main Program ---
+// add line with possibilities 1,2,3... help, x
+// add functions for quitting and displaying winning probabilities
 
 try {
   const args = process.argv.slice(2);
   const diceSet = InputParser.parseDiceConfigs(args);
-
-  const probabilities = ProbabilityCalculator.calculate(diceSet);
-  ProbabilityCalculator.display(probabilities, diceSet);
+  // console.log(args, "args", diceSet, "dice set");
+  // const probabilities = ProbabilityCalculator.calculate(diceSet);
+  // ProbabilityCalculator.display(probabilities, diceSet);
+  ProbabilityCalculator.showResults();
 
   const game = new Game(diceSet);
   game.start();
